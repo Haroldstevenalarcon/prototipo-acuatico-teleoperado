@@ -1,0 +1,171 @@
+#include <WiFi.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include "DHT.h"
+//------------------Servidor Web en puerto 80---------------------
+
+WiFiServer server(80);
+
+//---------------------Credenciales de WiFi-----------------------
+
+const char* ssid     = "harold";
+const char* password = "harold01";
+//---------------------VARIABLES GLOBALES-------------------------
+int contconexion = 0;
+
+String header; // Variable para guardar el HTTP request
+
+//------------------------CODIGO HTML----------------------------// 
+String paginaInicio = "<!DOCTYPE html>"
+"<html>"
+"<head>"
+"<meta charset='utf-8' />"
+"<META HTTP-EQUIV='Refresh' CONTENT='3'>"
+"</head>"
+"<body>"
+"<center>"
+"<h1>LECTURA SENSOR </h1>";
+
+String paginaFin = "</center>"
+"</body>"
+"</html>";
+// ----------------------ph variables -------------------------------------------------------------//
+
+
+const int phPin=35;
+float ph;
+const char* phh ="valor de ph  = ";
+float valor;
+float v ;
+//-----------------------températura variables y libreria one wire ------------------------------ //
+const int oneWireBus = 4;
+
+OneWire oneWire(oneWireBus);
+DallasTemperature sensors (&oneWire);
+
+int b = 12 ;
+const char* temperatura =" temperatura de el fluido = ";
+const char* sig = "°C"; 
+//----------------------- temepratura y humedad ambiente variables -------------------------------------------//
+const int humedadpin= 22 ; 
+const int tiposensor = DHT11; 
+DHT dht (humedadpin,tiposensor);
+int h ; 
+float t ; 
+const char* humedad = " humedad  = " ;
+const char* por = "% " ; 
+const char* ambi_tem = " temperatura ambiente =  " ; 
+
+
+
+
+//---------------------------SETUP--------------------------------
+void setup() {
+  Serial.begin(115200);
+  //------- inicializar el sensor de ph y define puero como entrada ----------------- // 
+  pinMode(phPin,INPUT);
+  delay(1000);
+
+  // -------------------------inicializar sensor dht11 por medio de la libreria  DHT.h-----------//
+  dht.begin(); 
+
+  //------------------------- inicializar wifi y sensores de temperatura ---------- // 
+
+  
+  sensors.begin();
+  // Conexión WIFI
+  WiFi.begin(ssid, password);
+  //Cuenta hasta 50 si no se puede conectar lo cancela
+  while (WiFi.status() != WL_CONNECTED and contconexion <50) { 
+    ++contconexion;
+    delay(500);
+    Serial.print(".");
+  }
+  if (contconexion <50) {
+      //para usar con ip fija
+      //IPAddress ip(192,168,1,180); 
+      //IPAddress gateway(192,168,1,1); 
+      //IPAddress subnet(255,255,255,0); 
+      //WiFi.config(ip, gateway, subnet); 
+      
+      Serial.println("");
+      Serial.println("WiFi conectado");
+      Serial.println(WiFi.localIP());
+      server.begin(); // iniciamos el servidor
+  }
+  else { 
+      Serial.println("");
+      Serial.println("Error de conexion");
+  }
+}
+
+//----------------------------LOOP----------------------------------
+
+void loop(){
+
+
+  //------------------------------------------- datos de el sensor de humedad-------------------------//
+  h= dht.readHumidity(); 
+  t= dht.readTemperature(); 
+
+
+
+  //-----------------leer datos de sensor de ph y su respectiva conversion  ------------ // 
+  valor= analogRead(phPin); 
+  v= valor*(3.3/4096.0) ; 
+  ph=(3.3*v);
+  //Leer la temperatura
+
+ 
+
+  sensors.requestTemperatures();
+
+  //Lectura en grados celsius
+
+  float temperatureC = sensors.getTempCByIndex(0);
+
+
+  WiFiClient client = server.available();   // Escucha a los clientes entrantes
+
+  if (client) {                             // Si se conecta un nuevo cliente
+    Serial.println("New Client.");          // 
+    String currentLine = "";                //
+    while (client.connected()) {            // loop mientras el cliente está conectado
+      if (client.available()) {             // si hay bytes para leer desde el cliente
+        char c = client.read();             // lee un byte
+        Serial.write(c);                    // imprime ese byte en el monitor serial
+        header += c;
+        if (c == '\n') {                    // si el byte es un caracter de salto de linea
+          // si la nueva linea está en blanco significa que es el fin del 
+          // HTTP request del cliente, entonces respondemos:
+          if (currentLine.length() == 0) {
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println("Connection: close");
+            client.println();
+                     
+            // Muestra la página web
+            client.println(paginaInicio + temperatura+ temperatureC + sig + paginaFin);
+            client.println(paginaInicio  +phh+  ph  + paginaFin);
+            client.println(paginaInicio + humedad +  h + por  + paginaFin);
+            client.println(paginaInicio+ ambi_tem + t + sig + paginaFin); 
+      
+            // la respuesta HTTP temina con una linea en blanco
+            client.println();
+            break;
+          } else { // si tenemos una nueva linea limpiamos currentLine
+            currentLine = "";
+          }
+        } else if (c != '\r') {  // si C es distinto al caracter de retorno de carro
+          currentLine += c;      // lo agrega al final de currentLine
+        }
+      }
+    }
+    // Limpiamos la variable header
+    header = "";
+    // Cerramos la conexión
+    client.stop();
+    Serial.println("Client disconnected.");
+    Serial.println("");
+  }
+}

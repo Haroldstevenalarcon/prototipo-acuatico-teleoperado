@@ -1,0 +1,172 @@
+#include "BluetoothSerial.h"
+#include <ESP32Servo.h>
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run make menuconfig to and enable it
+#endif
+#define LED 23 
+char envio; 
+
+Servo motorA; 
+Servo motorB;
+
+int aa = 1100  ; 
+int bb = 1100 ; 
+// variables de marcha hacia delante 
+const int maxvelo = 2100;
+const int minvelo = 1100;
+const int incre = 40;
+
+
+// variables de marcha hacia atras 
+ 
+const int maxvelo_giro = 1800;
+const int minvelo_giro = 1150 ;
+const int incre1= 20;
+BluetoothSerial BT; // Objeto Bluetooth
+void setup() {
+  Serial.begin(115200); 
+  BT.begin("BARCOBLUETOOTH"); // Nombre de su dispositivo Bluetooth 
+  Serial.println("El dispositivo Bluetooth está listo para emparejarse");
+
+
+  motorA.attach(25);
+  motorB.attach(26); 
+
+  motorA.writeMicroseconds(minvelo); // Envía una señal PWM de 1000 microsegundos para armar el ESC
+  motorB.writeMicroseconds(minvelo); // Envía una señal PWM de 1000 microsegundos para armar el ESC
+  
+  delay(1000);
+}
+void loop() {
+  if (BT.available()) // Compruebe si recibimos algo de Bluetooth
+  {
+   envio =  BT.read(); // Lee lo que recibimos
+  
+   switch (envio){
+
+   
+    case 'W': 
+    
+     Serial.println(envio);    
+     parar () ;
+     
+    break;
+    case 'F': 
+     //Serial.print (aa);
+     //Serial.print(bb);
+     Serial.println(envio);  
+     incrementar  () ;
+     
+    break;
+    case 'B': 
+    //Serial.print (aa);
+     // Serial.print(bb);
+     Serial.println(envio);   
+     decrementar  () ;
+   
+    break;
+    case 'R' :
+     //Serial.print (aa);
+     //Serial.print(bb);
+     Serial.println (envio ); 
+    derecha();  
+     
+    break ; 
+    case 'L':
+    Serial.print (aa);
+     Serial.print(bb);
+    Serial.println (envio ); 
+    izquierda();  
+   
+    break;
+    }
+    } 
+     
+  delay(20);
+  
+  }
+
+
+void parar (){
+
+  aa= minvelo;
+  bb = minvelo;
+  motorA.writeMicroseconds(aa); // Envía una señal PWM de 1000 microsegundos 
+  motorB.writeMicroseconds(bb); // Envía una señal PWM de 1000 microsegundos 
+  
+  
+
+ delay(20);
+
+  
+  }
+
+void incrementar  (){
+   
+  if (aa  <= maxvelo && bb <= maxvelo ) {
+    aa+= incre;
+    bb+= incre ;   
+    
+  } else {
+    aa = maxvelo;
+    bb = maxvelo;  
+  }
+ // Serial.print(aa) ; 
+  //Serial.print(bb);
+  motorA.writeMicroseconds(aa);
+  motorB.writeMicroseconds(bb);
+ 
+  delay(20);
+}
+
+void decrementar  (){
+
+  if (aa  >=minvelo && bb >= minvelo ) {
+    aa-= incre;
+    bb-= incre ;   
+    
+  } else {
+    aa = minvelo;
+    bb = minvelo;  
+  }
+ // Serial.print(aa) ; 
+ // Serial.print(bb);
+  motorA.writeMicroseconds(aa);
+  motorB.writeMicroseconds(bb);
+  delay(20);
+}
+void derecha   (){
+   
+  if (aa  <= maxvelo_giro  ) {
+    aa+= incre1;
+    bb+= incre1 ;
+    
+  } else {
+    aa = maxvelo_giro;
+    bb = maxvelo_giro; 
+  }
+  //Serial.print(aa) ; 
+//  Serial.print(bb);
+  motorA.writeMicroseconds(aa);
+  motorB.writeMicroseconds(1000);
+
+ 
+  delay(20);
+}
+
+void izquierda (){
+
+  if (aa <= maxvelo_giro  ) {
+    bb+= incre1;   
+    aa+= incre1 ; 
+  } else {
+    bb = maxvelo_giro;  
+    aa= maxvelo_giro ;
+  }
+ // Serial.print(aa) ; 
+ // Serial.print(bb);
+  motorA.writeMicroseconds(1000);
+  motorB.writeMicroseconds(bb);
+ 
+  delay(20);
+}
